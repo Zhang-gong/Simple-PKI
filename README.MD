@@ -1,29 +1,43 @@
-按照以下顺序进行仿真
+Environment:
 
-CA 1
+python==3.9.13
+```
+pip3 install -r requirements.txt
+```
+start three terminals:
+```
+python CA.py
+python client.py
+python server.py
+```
 
-SERVER 1
+The simulation is performed in the following order
 
-CLIENT 1
+CA:input 1 - generate CA host/user's key
 
-CA 2
+SERVER：input 1 - generate local server private/public key and give public key to CA 
 
-CA 3
+CLIENT:input 1 - generate local client private/public key and give public key to CA
 
-SERVER 2
+CA:input 2 - CA issues host certificates
 
-CLIENT 2
+CA:input 3 - CA issues user certificates
+
+SERVER:input 2 - get host certificate and user_ca.public key
+
+CLIENT:input 2 - get user certificate and host_ca.public key
 
 -----ssh start-----
 
-CLIENT 3
+CLIENT:input 3 - ssh log in the server(host), automatically sends the client(user) certificate to the server(host)
 
-SERVER 3
+SERVER:input 3 - verify the certificate from client(user) and send the server(host) certificate to client(user)
 
-CLIENT 4
+CLIENT:input 4 - verify the certificate from server(host)
+
+
+clean.py can clean all generated certificates and public and private keys.
 
 ```
 python clean.py
 ```
-
-clean.py可以清理生成的所有的证书以及公私钥。
