@@ -3,11 +3,18 @@ import uuid
 import time
 import calendar;
 import os
+import csv
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import load_pem_private_key,load_pem_public_key
 
 key_storage=[]
 key = {'keygen':'','time':'','timestamp':0}
+KEY_FILE_PATH = "key.csv"
+HEADER = ['user_subject_name', 'public_key', 'private_key', 'created_time']
 
-secret = str(uuid.uuid1())[-12:] + '.key' #server mac address
 
 banner ='''
 please input your choice of functions:
@@ -16,72 +23,74 @@ please input your choice of functions:
 3 - delete key
 '''
 
-def load_key():
-    if os.path.exists(secret) !=True:
-        print('No local key')
-        return
-    t = calendar.timegm(time.gmtime())
-    f = open(secret, 'r')
-    for line in f.readlines():
-        print(line)
-        line = line.strip()
-        line = line.split(':')
-        key['keygen'] = line[0]
-        key['time'] = int(line[1])
-        key['timestamp'] = int(line[2])
-        if key['timestamp'] + key['time'] > t :
-            print('Key:%s live' % key['keygen'])
-            key_storage.append(key)
-    f.close()
-    print('living key has loaded')
-    file = open(secret, 'w').close()
-    
-def save_key():
-    t = calendar.timegm(time.gmtime())
-    with open("server_key.pem", 'a') as f:
-        for item in key_storage:
-            if item['time'] + item['timestamp'] > t:
-                output = item['keygen'] +':'+ str(item['time']) +':'+ str(item['timestamp']) +':'+ item['keygen'][-12:]+'\n'
-                print(output)
-                print(f)
-                f.write(output)
-                print(output)
-    print('living key has saved')
+def get_private_pem(private_key):
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    return pem
+def get_public_pem(public_key):
+    pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    return pem
+def load_private_key(filename):
+    with open(filename, 'rb') as pem_in:
+        pemlines = pem_in.read()
+
+    private_key = load_pem_private_key(pemlines, None, default_backend())
+    # print("load key successful")
+    return private_key
+
+def load_public_key(filename):
+    with open(filename, 'rb') as pem_in:
+        pemlines = pem_in.read()
+
+    public_key = load_pem_public_key(pemlines, default_backend())
+    print("load key successful")
+    return public_key
+def save_key(private_key, public_key,user_subject_name):
+    created_time = calendar.timegm(time.gmtime())
+    private_key_bytes=get_private_pem(private_key)
+    public_key_bytes=get_public_pem(public_key)
+    #data = [user_subject_name.encode('utf-8'),public_key_bytes,private_key_bytes,str(created_time).encode('utf-8')]
+
+    public_key_file_name='ca_key\\'+user_subject_name+'.public'
+    private_key_file_name='ca_key\\'+user_subject_name+'.private'
+
+    with open(private_key_file_name, 'wb') as file:
+        file.write(private_key_bytes)
+        print('private key of '+user_subject_name+' has saved')
+    with open(public_key_file_name, 'wb') as file:
+        file.write(public_key_bytes)
+        print('public key of'+user_subject_name+' has saved')
+
 
 def key_construct():
-    keygen = ''.join(str(uuid.uuid4()).split('-'))[:20]+str(uuid.uuid1())[-12:] #应用于协议后此处应修改，修改为uuid4+客户端mac地址
-    t = calendar.timegm(time.gmtime())
-    key = {'keygen':keygen, 'time':t, 'timestamp':3600}
-    key_storage.append(key)
-    print('New keygen: %s is constructed for 3600s' % keygen)
-      
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    public_key = private_key.public_key()
+    private_key_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    public_key_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    public_key_numeric = int.from_bytes(public_key_bytes, byteorder='big')
+    print("Public Key (Numeric):", public_key_numeric)
 
-if __name__ == '__main__':
-    load_key()
-    print('Welcome to KMS')
-    choice = int(input(banner))
-    while(choice != 0):
-        match choice:
-            case 1:
-                key_construct() #协议：输入参数为客户端mac地址
-               
-            case 2:
-                if len(key_storage) > 0 :
-                    for item in key_storage:
-                        print('Keygen: %s ,startime: %s, from user:%s' % (item['keygen'],str(item['time']),item['keygen'][-12:]))
-                else:
-                    print('暂无密钥')
-            case 3:
-                keygen = input('please input a keygen:')
-                key_storage = key_storage.sort(key = lambda x:x[0]!=keygen)
-                if key_storage[0]['keygen'] == keygen:
-                    key_storage.pop(0)
-                    print('Delete !')
-                else:
-                    print('Not Found')
-            case _:
-                print('Error')
-        
-        choice = int(input(banner))
-    save_key()
-    print('Service dowm!')
+    private_key_numeric = int.from_bytes(private_key_bytes, byteorder='big')
+    print("Private Key (Numeric):", private_key_numeric)
+
+    return private_key, public_key
+
+
+
