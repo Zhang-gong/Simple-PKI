@@ -1,3 +1,8 @@
+# Simple-PKI
+
+This is a simple PKI(Public Key Infrastructure) simulation system designed to simulate the authentication process among CA (Certificate Authority), HOST, and USER in the SSH (Secure Shell) protocol, as well as the role played by KMS (Key Management System) in this process.
+
+
 Environment:
 
 python==3.11.4
